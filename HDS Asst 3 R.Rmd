@@ -1,0 +1,47 @@
+```{r}
+if (!require("tidyr")) install.packages("tidyr", dependencies = TRUE)
+if (!require("dplyr")) install.packages("dplyr", dependencies = TRUE)
+if (!require("readxl")) install.packages("readxl", dependencies = TRUE)
+if (!require("microbenchmark")) install.packages("microbenchmark", dependencies = TRUE)
+library(microbenchmark)
+library(readxl)
+library(dplyr)
+library(tidyr)
+clinic_data <- read_excel("C:\\Users\\crazy\\Downloads\\clinics.xls", sheet = "Results")
+clinic_data$locLat <- as.numeric(clinic_data$locLat)
+clinic_data$locLong <- as.numeric(clinic_data$locLong)
+coords <- clinic_data %>% select(locLat, locLong) %>% drop_na()
+if (!is.numeric(coords$locLat) | !is.numeric(coords$locLong)) {
+  stop("Error: Latitude or Longitude contains non-numeric values.")
+}
+n <- nrow(coords)
+compute_distance_loop <- function(coords) {
+  dist_matrix <- matrix(0, n, n)
+  for (i in seq_len(n)) {
+    for (j in seq_len(n)) {
+      if (i != j) {
+        dist_matrix[i, j] <- sqrt((coords$locLat[i] - coords$locLat[j])^2 + 
+                                  (coords$locLong[i] - coords$locLong[j])^2)
+      }
+    }
+  }
+  return(dist_matrix)
+}
+distance_vectorized <- function(coords) {
+  lat_diff <- outer(coords$locLat, coords$locLat, "-")
+  long_diff <- outer(coords$locLong, coords$locLong, "-")
+  sqrt(lat_diff^2 + long_diff^2)
+}
+distance_base_r <- function(coords) {
+  as.matrix(dist(coords))
+}
+timing_results <- microbenchmark(
+  ForLoop = compute_distance_loop(coords),
+  VectorizedMethod = distance_vectorized(coords),
+  BaseRMethod = distance_base_r(coords),
+  times = 10
+)
+print(timing_results)
+
+```
+
