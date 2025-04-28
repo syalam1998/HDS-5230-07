@@ -1,0 +1,97 @@
+
+---
+title: "XGBoost Model Performance"
+output: html_document
+---
+```{r}
+library(xgboost)
+
+# Dataset sizes
+dataset_sizes <- c(100, 1000, 10000, 100000, 1000000)
+
+# Initialize an empty list to store the results
+results <- data.frame(Dataset_Size = integer(), Test_Error = numeric(), Time_Taken = numeric())
+
+# Loop over each dataset size
+for (size in dataset_sizes) {
+  data <- generated_data[[which(dataset_sizes == size)]]  # Load the dataset based on size
+  
+  # Prepare the training data (exclude the outcome column for features)
+  train_data <- as.matrix(data[, -ncol(data)])  # Exclude outcome column
+  train_label <- data$outcome  # The outcome is our target variable
+  
+  # Start timing the training process
+  start_time <- Sys.time()
+  
+  # Train the XGBoost model (using default parameters)
+  bst <- xgboost(data = train_data, label = train_label, max.depth = 2, eta = 1, nrounds = 5, objective = "binary:logistic")
+  
+  # Stop timing after training
+  end_time <- Sys.time()
+  
+  # Calculate the time taken to train the model
+  time_taken <- end_time - start_time
+  
+  # Make predictions and calculate the test error (accuracy)
+  pred <- predict(bst, train_data)
+  err <- mean(as.numeric(pred > 0.5) != train_label)
+  
+  # Store the results in the dataframe
+  results <- rbind(results, data.frame(Dataset_Size = size, Test_Error = err, Time_Taken = time_taken))
+}
+
+# Print the results for all dataset sizes
+print(results)
+
+
+```
+```{r}
+library(caret)
+library(xgboost)
+
+# Dataset sizes
+dataset_sizes <- c(100, 1000, 10000, 100000, 1000000)
+
+# Initialize an empty list to store the results
+results_caret <- data.frame(Dataset_Size = integer(), Accuracy = numeric(), Time_Taken = numeric())
+
+# Loop over each dataset size
+for (size in dataset_sizes) {
+  data <- generated_data[[which(dataset_sizes == size)]]  # Load the dataset based on size
+  
+  # Convert the outcome variable to a factor (needed for confusionMatrix)
+  data$outcome <- factor(data$outcome, levels = c(0, 1))
+  
+  # Define the control for 5-fold cross-validation
+  train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
+  
+  # Start timing the training process
+  start_time <- Sys.time()
+  
+  # Train the XGBoost model using caret
+  xgb_model <- train(outcome ~ ., data = data, method = "xgbTree", trControl = train_control)
+  
+  # Stop timing after training
+  end_time <- Sys.time()
+  
+  # Calculate the time taken to train the model
+  time_taken <- end_time - start_time
+  
+  # Make predictions on the training data
+  predvals <- predict(xgb_model, data)
+  
+  # Convert the predictions to a factor (to match the outcome variable's factor levels)
+  predvals <- factor(predvals, levels = c(0, 1))
+  
+  # Calculate the confusion matrix
+  conf_matrix <- confusionMatrix(predvals, data$outcome)
+  
+  # Store the accuracy and time taken in the dataframe
+  results_caret <- rbind(results_caret, data.frame(Dataset_Size = size, Accuracy = conf_matrix$overall['Accuracy'], Time_Taken = time_taken))
+}
+
+# Print the results for all dataset sizes
+print(results_caret)
+
+```
+
